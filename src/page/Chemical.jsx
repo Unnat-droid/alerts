@@ -184,7 +184,7 @@ const ChemicalChangePage = () => {
     const handle_fetch = async () => {
       try {
          const res = await fetch(
-            `https://ai.entvin.com/apiv2/get_data/${application}?date_updated=${data_updated}`,
+            `${import.meta.env.VITE_API_URL}/get_data/${application}?date_updated=${data_updated}`,
             {
                method: "GET",
                headers: {

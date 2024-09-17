@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-d
 
 import "./App.css";
 import ChemicalChangePage from "./page/Chemical";
+import HomePage from "./page/HomePage";
 
 function App() {
    return (
@@ -16,7 +17,7 @@ function App() {
                <Routes>
                   <Route
                      path="/"
-                     element={<div>Woeking</div>}
+                     element={<HomePage/>}
                   />
                   <Route
                      path="/chemical-changes/:application"
