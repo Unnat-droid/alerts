@@ -5,7 +5,7 @@ const HomePage = () => {
       const navigate = useNavigate();
       useEffect(()=>{
             console.log('HomePage Mounted');
-            navigate('/chemical-changes/215358?date=9/7/2024');
+            navigate('/chemical-changes');
       },[]);
   return (
     <div>HomePage</div>

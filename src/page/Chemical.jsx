@@ -78,18 +78,6 @@ function PDFViewer({
    }
 
    useEffect(() => {
-      // Adjust scale on component mount and when the window is resized
-      adjustScale();
-
-      // Listen to window resize event to adjust scale dynamically
-      window.addEventListener("resize", adjustScale);
-
-      return () => {
-         window.removeEventListener("resize", adjustScale);
-      };
-   }, []);
-
-   useEffect(() => {
       observerRef.current = setupIntersectionObserver(setCurrentPage, type);
 
       return () => {
@@ -144,10 +132,9 @@ function PDFViewer({
 }
 
 const ChemicalChangePage = () => {
-   let { application } = useParams();
+   let  application  = "206473";
+   const type = "fda";
    const location = useLocation();
-   const searchParams = new URLSearchParams(location.search);
-   const data_updated = searchParams.get("date");
    const [currentPage, setCurrentPage] = useState(1);
    const navigate = useNavigate();
    const [numPages, setNumPages] = useState(null);
@@ -161,43 +148,124 @@ const ChemicalChangePage = () => {
    const [sectionChanges, setSectionChanges] = useState([]);
    const [currentIndex, setCurrentIndex] = useState(0);
    const [highestPageNumber, setHighestPageNumber] = useState(0);
-
+   const [pageClicked, setPageClicked] = useState(false);
+   const [molecule_name, setMoleculeName] = useState("Molecule");
+   
    const goToNextChange = () => {
-      const nextChange = sectionChanges.find(change => change.page > currentPage);
-      if (nextChange) {
-        setCurrentPage(nextChange.page);
-        setCurrentIndex(sectionChanges.indexOf(nextChange));
-        scrollToPage(nextChange.page);
-      }
-    };
-    
-    const goToPreviousChange = () => {
-      const previousChanges = sectionChanges.filter(change => change.page < currentPage);
-      if (previousChanges.length > 0) {
-        const nearestPreviousChange = previousChanges[previousChanges.length - 1];
-        setCurrentPage(nearestPreviousChange.page);
-        setCurrentIndex(sectionChanges.indexOf(nearestPreviousChange));
-        scrollToPage(nearestPreviousChange.page);
-      }
-    };
+      let nextPage = null;
+      let nextIndex = -1;
 
-    const handle_fetch = async () => {
+      for (let i = 0; i < sectionChanges.length; i++) {
+         const section = sectionChanges[i];
+         for (let j = 0; j < section.pages.length; j++) {
+            if (section.pages[j] > currentPage) {
+               nextPage = section.pages[j];
+               nextIndex = i;
+               break;
+            }
+         }
+         if (nextPage !== null) break;
+      }
+
+      if (nextPage !== null) {
+         setCurrentPage(nextPage);
+         setCurrentIndex(nextIndex);
+         scrollToPage(nextPage);
+      }
+   };
+
+   const goToPreviousChange = () => {
+      let previousPage = null;
+      let previousIndex = -1;
+
+      for (let i = sectionChanges.length - 1; i >= 0; i--) {
+         const section = sectionChanges[i];
+         for (let j = section.pages.length - 1; j >= 0; j--) {
+            if (section.pages[j] < currentPage) {
+               previousPage = section.pages[j];
+               previousIndex = i;
+               break;
+            }
+         }
+         if (previousPage !== null) break;
+      }
+
+      if (previousPage !== null) {
+         setCurrentPage(previousPage);
+         setCurrentIndex(previousIndex);
+         scrollToPage(previousPage);
+      }
+   };
+
+
+
+   function transformData(inputData) {
+      const titleMap = new Map();
+
+      inputData.forEach((item) => {
+         if (!titleMap.has(item.title)) {
+            titleMap.set(item.title, {
+               title: item.title,
+               pages: [],
+            });
+         }
+
+         const entry = titleMap.get(item.title);
+         entry.pages.push(item.page);
+      });
+
+      return Array.from(titleMap.values()).map((entry) => ({
+         title: entry.title,
+         pages: entry.pages,
+      }));
+   }
+
+   const handle_fetch = async () => {
       try {
+         let paramKey = "";
+         switch (type) {
+            case "fda":
+               paramKey = "application_no";
+               break;
+            case "ema":
+               paramKey = "ema_no";
+               break;
+            case "ema_pi":
+               paramKey = "ema_pi_no";
+               break;
+            case "tga":
+               paramKey = "tga_no";
+               break;
+            case "tga_pi":
+               paramKey = "tga_pi_no";
+               break;
+            default:
+               paramKey = "application_no";
+         }
+
          const res = await fetch(
-            `${import.meta.env.VITE_API_URL}/get_data/${application}?date_updated=${data_updated}`,
+            `${
+               import.meta.env.VITE_API_URL}`,
             {
                method: "GET",
                headers: {
-                  Authorization: `Bearer ${'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyaXNoYWJoQGVudHZpbi5jb20iLCJleHAiOjE3MjY1ODkwODN9.D2CpCLzMZXm72F8v-WYPB1EphlqPWXAqKxurYphEKiQ'}`,
+                  Authorization: `Bearer ${(`eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3MjA4NzM0NzJiZjRjYWYzMGM1M2YyYjY1Y2FiMDYxMDRiZWJlZGI3NTk2MmJhNjlmMDIwMmY4YTFmOWNiYWIyM2NlMzgwYTAzNmZmNzBhYWQxZTRlZjQyOTYwZjgzM2QiLCJleHAiOjE3MzgxNDY5NTUsImlhdCI6MTczODA2MDU1NSwibmJmIjoxNzM4MDYwNTU1fQ.zK9XZLBqX5JZRbFYd7hTO0PotVl7Teoa15mBlIEUXI9iKZGsRmCePeCV-dnqgJgLm0Ysi80zabCFUTodyHkPNQ`)}`,
                   mode: "no-cors",
+                  'Strict-Transport-Security': 'max-age=16070400; includeSubDomains',
+                  'X-XSS-Protection': '1; mode=block',
+                  'X-Content-Type-Options': 'nosniff',
+                  'Content-Security-Policy': "default-src 'self'",
+                  'X-Frame-Options': 'DENY'
                },
             }
          );
+
          if (res.ok) {
             const data = await res.json();
-            setOldPdfUrl(data?.html_content?.old_pdf_link);
-            setNewPdfUrl(data?.html_content?.new_pdf_link);
-            setSectionChanges(data?.sections);
+            setOldPdfUrl(data?.aws_link?.old_pdf_link);
+            setNewPdfUrl(data?.aws_link?.new_pdf_link);
+            setMoleculeName(data?.molecule_name);
+            setSectionChanges(transformData(data?.sections));
          }
       } catch (err) {
          console.error(err);
@@ -222,6 +290,7 @@ const ChemicalChangePage = () => {
    }, [loadedCount]);
 
    const scrollToPage = (pageNumber) => {
+      setPageClicked(true);
       const element1 = document.getElementById(`page_${pageNumber}_new`);
       const element2 = document.getElementById(`page_${pageNumber}_old`);
 
@@ -249,6 +318,19 @@ const ChemicalChangePage = () => {
          setPdfLoaded(true);
       }
    }, [loadedCount]);
+
+   const get_labels = ()=>{
+      if(type === "fda"){
+         return "Product Label Insert"
+      }
+      if(type === "ema"){
+         return "European Public Assessment Report Report"
+      }
+      if(type === "ema_pi"){
+         return "European Medicines Agency Public Interim Report"
+      }
+      return "LABEL"
+   }
 
    useEffect(() => {
       if (!isLoaded) return;
@@ -286,20 +368,23 @@ const ChemicalChangePage = () => {
    return (
       <div className="w-full h-screen  flex overflow-hidden">
          <div className="flex flex-col w-[80%] h-full">
-            <div className="p-5">
-               <img
-                  src={entvin_logo}
-                  className="w-[137px] h-[61px]"
-                  alt="icon"
-               />
-               <div className="text-2xl font-semibold py-3">
-                  {"SCEMBLIX"} - Product Label/ Insert Change
+            <div className="flex items-start justify-between">
+               <div className="p-5">
+                  <img
+                     src={entvin_logo}
+                     className="w-[137px] h-[61px]"
+                     alt="icon"
+                  />
+                  <div className="text-2xl font-semibold py-3">
+                     {molecule_name} - {application} - {get_labels(type)}
+                  </div>
                </div>
+              
             </div>
-            <div className="flex flex-col md:flex-row px-5  h-full overflow-auto  md:overflow-hidden w-full mx-auto">
-               <div className="w-full md:w-1/2 h-[92%]">
+            <div className="flex flex-col md:flex-row px-5  h-full  overflow-hidden w-full mx-auto">
+               <div className={`w-full md:w-1/2 ${pageClicked && "mt-20"}`}>
                   <h2 className="text-lg bg-[#F5F4FE] gap-4 flex items-center justify-center border font-semibold p-2 text-[#7F56D9] ">
-                     {"SCEMBLIX"} - (New){" "}
+                     {molecule_name} - {application} - (New){" "}
                      <svg
                         onClick={() => {
                            window.open(NewPdfUrl, "_blank");
@@ -329,9 +414,9 @@ const ChemicalChangePage = () => {
                      />
                   </div>
                </div>
-               <div className="w-full md:w-1/2 h-[92%]">
-                  <h2 className="text-lg bg-[#F5F4FE] gap-4 flex items-center justify-center border font-semibold p-2 text-[#7F56D9] ">
-                     {"SCEMBLIX"} - (Old)
+               <div className={`w-full md:w-1/2 ${pageClicked && "mt-20"}`}>
+                  <h2 className="text-lg z-[30000] bg-[#F5F4FE] gap-4 flex items-center justify-center border font-semibold p-2 text-[#7F56D9] ">
+                     {molecule_name} - {application} - (Old)
                      <svg
                         onClick={() => {
                            window.open(OldPdfUrl, "_blank");
@@ -366,8 +451,8 @@ const ChemicalChangePage = () => {
                <Button
                   onClick={goToPreviousChange}
                   variant="outlined"
-                  disabled={currentPage <= sectionChanges[0]?.page}
-                  className="!border-[#7F56D9] disabled:!border-gray-600 disabled:!bg-gray-200 disabled:!text-[#929292] !text-[#7F56D9] hover:!text-[#7F56D9]"
+                  disabled={currentPage <= sectionChanges[0]?.pages[0]}
+                  className="!border-[#7F56D9] disabled:!border-gray-600 disabled:!bg-gray-200 disabled:!text-[#929292] !text-[#7F56D9] hover:!text-white"
                >
                   ← Previous Change
                </Button>
@@ -375,7 +460,12 @@ const ChemicalChangePage = () => {
                   onClick={goToNextChange}
                   variant="contained"
                   className="!bg-[#7F56D9] disabled:!bg-[#000]/20 hover:!bg-[#7F56D9] hover:!text-white text-white"
-                  disabled={currentPage >= sectionChanges[sectionChanges?.length - 1]?.page}
+                  disabled={
+                     currentPage >=
+                     sectionChanges[sectionChanges?.length - 1]?.pages[
+                        sectionChanges[sectionChanges?.length - 1]?.pages?.length - 1
+                     ]
+                  }
                >
                   Next Change →
                </Button>
@@ -386,7 +476,8 @@ const ChemicalChangePage = () => {
             <Box sx={{ width: "100%", maxWidth: 360 }}>
                <Typography
                   component="div"
-                  sx={{ p: 1, fontSize: 20, fontWeight: 500 }}
+                  className="!text-[#4D4D4D]"
+                  sx={{ p: 1, fontSize: 16, fontWeight: 500 }}
                >
                   Section with Changes
                </Typography>
@@ -394,14 +485,51 @@ const ChemicalChangePage = () => {
                   {sectionChanges.map((section, index) => (
                      <div
                         key={index}
-                        onClick={() => {
-                           scrollToPage(section.page);
-                        }}
-                        className={`w-full cursor-pointer ${
-                           currentPage === section?.page && "bg-[#7F56D9] text-white"
-                        } p-2 border py-3 text-[#4D4D4D] font-normal text-sm`}
+                        className={`w-full my-3 rounded-md  shadow-md cursor-pointer ${
+                           section?.pages?.includes(currentPage)
+                              ? "bg-[#F5F4FE] text-[#7F55D9]"
+                              : "bg-[#fff]"
+                        } p-4 border py-3 !capitalize`}
                      >
-                        {section?.section_title}
+                        <div
+                           className={`border-b flex items-center justify-between !capitalize pb-2 text-sm`}
+                        >
+                           <div>
+                              {index + 1} {" . "}
+                              {section?.title}
+                           </div>
+
+                           <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 13 13"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                           >
+                              <path
+                                 d="M1.29629 12.6066L0.290039 11.6003L10.1609 1.72949H1.10462V0.291992H12.6046V11.792H11.1671V2.73574L1.29629 12.6066Z"
+                                 fill="#7F56D9"
+                              />
+                           </svg>
+                        </div>
+
+                        <div className="flex mt-2 items-start gap-2 flex-wrap text-sm">
+                           <span className="text-[#4D4D4D]"> Pages</span>
+                           {section?.pages?.map((page, index) => (
+                              <div
+                                 className={`w-6 h-6 ${
+                                    currentPage === page
+                                       ? "bg-[#7F56D9] text-white"
+                                       : "bg-[#FCFBFF] text-[#7F55D9]"
+                                 } flex items-center justify-center text-xs border rounded-full`}
+                                 onClick={() => {
+                                    scrollToPage(page);
+                                 }}
+                              >
+                                 {page}
+                              </div>
+                           ))}
+                        </div>
                      </div>
                   ))}
                </List>

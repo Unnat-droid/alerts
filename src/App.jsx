@@ -20,7 +20,7 @@ function App() {
                      element={<HomePage/>}
                   />
                   <Route
-                     path="/chemical-changes/:application"
+                     path="/chemical-changes"
                      element={<ChemicalChangePage />}
                   />{" "}
                </Routes>
